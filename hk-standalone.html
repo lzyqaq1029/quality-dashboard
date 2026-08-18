@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>横展看板 · 项目整改跟踪 BI</title>
+<style>
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --bg-primary: #0a0e27;
+  --bg-secondary: #111638;
+  --bg-card: #1a1f4e;
+  --text-primary: #e8eaf6;
+  --text-secondary: #9fa8da;
+  --accent-blue: #4fc3f7;
+  --accent-purple: #b388ff;
+  --accent-green: #69f0ae;
+  --accent-orange: #ffab40;
+  --accent-red: #ff5252;
+  --accent-cyan: #18ffff;
+  --glow-blue: rgba(79, 195, 247, 0.3);
+  --glow-purple: rgba(179, 136, 255, 0.3);
+}
+
+body {
+  font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: 
+    radial-gradient(ellipse at 20% 50%, rgba(79, 195, 247, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 20%, rgba(179, 136, 255, 0.08) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 80%, rgba(105, 240, 174, 0.05) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ===== 头部 ===== */
+.header {
+  background: linear-gradient(135deg, #0d1137 0%, #1a237e 50%, #0d1137 100%);
+  border-bottom: 1px solid rgba(79, 195, 247, 0.2);
+  padding: 20px 40px;
+  display: flex; align-items: center; justify-content: space-between;
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+}
+.header-left { display: flex; align-items: center; gap: 16px; }
+.logo { width: 56px; height: 56px; border-radius: 12px; object-fit: contain; background: #fff; padding: 4px; box-shadow: 0 0 20px var(--glow-blue); }
+.header-title h1 { font-size: 24px; font-weight: 700; background: linear-gradient(90deg, var(--accent-blue), var(--accent-purple)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; letter-spacing: 2px; }
+.header-title .subtitle { font-size: 12px; color: var(--text-secondary); margin-top: 4px; letter-spacing: 1px; }
+.header-right { display: flex; align-items: center; gap: 16px; }
+.datetime { text-align: right; font-size: 13px; color: var(--text-secondary); }
+.datetime .time { font-size: 20px; font-weight: 700; color: var(--accent-cyan); font-variant-numeric: tabular-nums; }
+
+/* 头部工具栏按钮 */
+.header-tools { display: flex; gap: 8px; }
+.header-tools button {
+  padding: 8px 16px; border: 1px solid rgba(79, 195, 247, 0.3); border-radius: 8px;
+  background: rgba(79, 195, 247, 0.08); color: var(--accent-blue);
+  font-size: 13px; font-weight: 600; cursor: pointer; transition: all 0.3s;
+  display: flex; align-items: center; gap: 6px;
+}
+.header-tools button:hover { background: rgba(79, 195, 247, 0.2); border-color: var(--accent-blue); }
+.header-tools button.active { background: rgba(79, 195, 247, 0.25); border-color: var(--accent-blue); }
+
+/* ===== 面包屑 + 看板切换栏 ===== */
+.breadcrumb {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200; height: 48px;
+  background: rgba(17, 22, 56, 0.95);
+  border-bottom: 1px solid rgba(79, 195, 247, 0.1);
+  padding: 0 24px;
+  display: none; align-items: center; gap: 0;
+}
+.breadcrumb.show { display: flex; }
+.breadcrumb .back-btn {
+  padding: 10px 18px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  border: none; border-radius: 6px; color: #fff; font-size: 13px; font-weight: 600;
+  cursor: pointer; transition: all 0.3s; white-space: nowrap; margin-right: 16px;
+}
+.breadcrumb .back-btn:hover { transform: translateX(-3px); box-shadow: 0 0 15px var(--glow-blue); }
+
+/* 看板切换标签 */
+.board-tabs { display: flex; gap: 0; flex: 1; overflow-x: auto; }
+.board-tab {
+  padding: 12px 18px; border: none; background: transparent;
+  color: var(--text-secondary); font-size: 13px; font-weight: 500;
+  cursor: pointer; transition: all 0.2s; white-space: nowrap;
+  border-bottom: 2px solid transparent; position: relative;
+}
+.board-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.03); }
+.board-tab.active { color: var(--accent-blue); border-bottom-color: var(--accent-blue); font-weight: 600; }
+.board-tab .tab-key { font-size: 10px; background: rgba(79, 195, 247, 0.15); color: var(--accent-blue); padding: 1px 5px; border-radius: 3px; margin-right: 6px; font-weight: 700; }
+
+/* 全屏按钮 */
+.fullscreen-btn {
+  padding: 8px 14px; border: 1px solid rgba(79, 195, 247, 0.3); border-radius: 6px;
+  background: rgba(79, 195, 247, 0.08); color: var(--accent-blue);
+  font-size: 16px; cursor: pointer; transition: all 0.3s; margin-left: 12px; white-space: nowrap;
+}
+.fullscreen-btn:hover { background: rgba(79, 195, 247, 0.2); }
+
+/* ===== 主内容区 ===== */
+.main-content { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 32px 32px; }
+
+/* ===== KPI 概览区 ===== */
+.kpi-overview {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 36px;
+}
+@media (max-width: 1024px) { .kpi-overview { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 640px) { .kpi-overview { grid-template-columns: repeat(2, 1fr); } }
+
+.kpi-item {
+  background: var(--bg-card); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 20px 16px; text-align: center;
+  position: relative; overflow: hidden; transition: transform 0.3s, box-shadow 0.3s;
+}
+.kpi-item:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+.kpi-item::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; }
+.kpi-item:nth-child(1)::before { background: var(--accent-blue); }
+.kpi-item:nth-child(2)::before { background: var(--accent-orange); }
+.kpi-item:nth-child(3)::before { background: var(--accent-green); }
+.kpi-item:nth-child(4)::before { background: var(--accent-red); }
+.kpi-item:nth-child(5)::before { background: var(--accent-cyan); }
+.kpi-item:nth-child(6)::before { background: var(--accent-purple); }
+.kpi-icon { font-size: 24px; margin-bottom: 8px; }
+.kpi-value { font-size: 32px; font-weight: 800; line-height: 1.1; }
+.kpi-item:nth-child(1) .kpi-value { color: var(--accent-blue); }
+.kpi-item:nth-child(2) .kpi-value { color: var(--accent-orange); }
+.kpi-item:nth-child(3) .kpi-value { color: var(--accent-green); }
+.kpi-item:nth-child(4) .kpi-value { color: var(--accent-red); }
+.kpi-item:nth-child(5) .kpi-value { color: var(--accent-cyan); }
+.kpi-item:nth-child(6) .kpi-value { color: var(--accent-purple); }
+.kpi-label { font-size: 12px; color: var(--text-secondary); margin-top: 6px; font-weight: 500; }
+.kpi-trend { font-size: 11px; margin-top: 4px; font-weight: 600; }
+.kpi-trend.down { color: var(--accent-green); }
+.kpi-trend.up { color: var(--accent-red); }
+.kpi-trend.flat { color: var(--text-secondary); }
+
+/* ===== 欢迎区 ===== */
+.welcome-section { text-align: center; margin-bottom: 28px; }
+.welcome-section h2 { font-size: 18px; color: var(--text-secondary); font-weight: 400; }
+
+/* ===== 卡片网格 ===== */
+.dashboard-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+@media (max-width: 1024px) { .dashboard-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 640px) { .dashboard-grid { grid-template-columns: 1fr; } }
+
+/* ===== 看板卡片 ===== */
+.dashboard-card {
+  position: relative; background: var(--bg-card);
+  border: 1px solid rgba(255, 255, 255, 0.06); border-radius: 16px;
+  padding: 28px 24px; cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1); overflow: hidden;
+}
+.dashboard-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--card-accent); opacity: 0.8; transition: height 0.3s; }
+.dashboard-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(ellipse at 50% 0%, var(--card-glow) 0%, transparent 70%); opacity: 0; transition: opacity 0.4s; pointer-events: none; }
+.dashboard-card:hover { transform: translateY(-6px) scale(1.02); border-color: var(--card-accent); box-shadow: 0 20px 60px rgba(0, 0, 0, 0.4), 0 0 30px var(--card-glow); }
+.dashboard-card:hover::before { height: 4px; opacity: 1; }
+.dashboard-card:hover::after { opacity: 1; }
+
+.card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+.card-icon { font-size: 36px; filter: drop-shadow(0 0 8px var(--card-glow)); }
+.card-status {
+  font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 10px; white-space: nowrap;
+}
+.card-status.ok { background: rgba(105, 240, 174, 0.15); color: var(--accent-green); }
+.card-status.warn { background: rgba(255, 82, 82, 0.15); color: var(--accent-red); }
+.card-status.info { background: rgba(79, 195, 247, 0.15); color: var(--accent-blue); }
+
+.card-title { font-size: 17px; font-weight: 700; color: var(--text-primary); margin-bottom: 6px; }
+.card-desc { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+.card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); }
+.card-update { font-size: 11px; color: var(--text-secondary); opacity: 0.7; }
+.card-shortcut { font-size: 11px; color: var(--text-secondary); opacity: 0.5; }
+.card-shortcut kbd { background: rgba(255,255,255,0.08); padding: 1px 6px; border-radius: 3px; font-size: 11px; font-weight: 700; }
+
+.card-arrow { position: absolute; bottom: 16px; right: 16px; font-size: 16px; color: var(--text-secondary); opacity: 0; transform: translateX(-10px); transition: all 0.3s; }
+.dashboard-card:hover .card-arrow { opacity: 1; transform: translateX(0); color: var(--card-accent); }
+
+/* ===== Loading 动画 ===== */
+.loading-overlay {
+  position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+  background: var(--bg-primary); display: none; align-items: center; justify-content: center;
+  flex-direction: column; gap: 16px; z-index: 5;
+}
+.loading-overlay.show { display: flex; }
+.loading-spinner {
+  width: 40px; height: 40px; border: 3px solid rgba(79, 195, 247, 0.2);
+  border-top-color: var(--accent-blue); border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-size: 14px; color: var(--text-secondary); }
+
+/* ===== iframe 容器 ===== */
+.iframe-container {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 100; background: var(--bg-primary);
+}
+.iframe-container.show { display: block; }
+.iframe-wrapper { position: relative; width: 100%; height: calc(100% - 48px); margin-top: 48px; }
+.iframe-wrapper iframe { width: 100%; height: 100%; border: none; }
+
+/* ===== 悬浮返回按钮 ===== */
+.floating-back-btn {
+  position: fixed; bottom: 30px; right: 30px; z-index: 1000;
+  padding: 14px 28px; background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+  border: none; border-radius: 30px; color: #fff; font-size: 15px; font-weight: 700;
+  cursor: pointer; box-shadow: 0 4px 20px var(--glow-blue); transition: all 0.3s;
+  display: none; align-items: center; gap: 8px;
+}
+.floating-back-btn.show { display: flex; }
+.floating-back-btn:hover { transform: translateY(-3px); box-shadow: 0 6px 30px var(--glow-blue); }
+
+/* ===== 底部 ===== */
+.footer {
+  position: relative; z-index: 1; text-align: center; padding: 24px;
+  color: var(--text-secondary); font-size: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05); margin-top: 60px;
+}
+
+/* ===== 粒子动画 ===== */
+.particles { position: fixed; top: 0; left: 0; right: 0; bottom: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+.particle { position: absolute; width: 2px; height: 2px; background: var(--accent-blue); border-radius: 50%; opacity: 0.3; animation: float linear infinite; }
+@keyframes float {
+  0% { transform: translateY(100vh) rotate(0deg); opacity: 0; }
+  10% { opacity: 0.3; }
+  90% { opacity: 0.3; }
+  100% { transform: translateY(-100px) rotate(720deg); opacity: 0; }
+}
+
+/* ===== 轮播指示器 ===== */
+.carousel-indicator {
+  position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+  background: rgba(17, 22, 56, 0.9); border: 1px solid rgba(79, 195, 247, 0.2);
+  border-radius: 20px; padding: 8px 16px; display: none; align-items: center; gap: 12px;
+  z-index: 1000; font-size: 12px; color: var(--text-secondary);
+}
+.carousel-indicator.show { display: flex; }
+.carousel-indicator .progress-bar {
+  width: 100px; height: 3px; background: rgba(79, 195, 247, 0.2); border-radius: 2px; overflow: hidden;
+}
+.carousel-indicator .progress-fill {
+  height: 100%; background: var(--accent-blue); border-radius: 2px;
+  animation: progress 30s linear infinite;
+}
+@keyframes progress { from { width: 0; } to { width: 100%; } }
+
+</style>
+</head>
+<body>
+
+<script>
+// 自动生成于 2026/8/14 14:16:57
+var RAW_HENGZHAN = [
+  {
+    "id": 1,
+    "name": "限速器防摇摆支架安装",
+    "dept": "机械设计部",
+    "owner": "/",
+    "total": 25,
+    "design": 25,
+    "arrival": 25,
+    "fixed": 25,
+    "rate": 1,
+    "status": null,
+    "progress": "已完成"
+  },
+  {
+    "id": 2,
+    "name": "货架占位检测衡展",
+    "dept": "机械设计部",
+    "owner": "李彩亮",
+    "total": 22,
+    "design": 11,
+    "arrival": 7,
+    "fixed": 6,
+    "rate": 0.2727,
+    "status": null,
+    "progress": "1117/1131/1222/1225/1260现场横展物料清点--已完成\n丢失物料重新输出--服务部--6-30\n物料到货--采购部--7-10\n整改安装--项目万华--7-30"
+  },
+  {
+    "id": 3,
+    "name": "配重式限速器整改",
+    "dept": "机械设计部",
+    "owner": "熊赳赳",
+    "total": 29,
+    "design": 29,
+    "arrival": 29,
+    "fixed": 29,
+    "rate": 1,
+    "status": null,
+    "progress": "已完成"
+  },
+  {
+    "id": 4,
+    "name": "变频器报警衡展",
+    "dept": "电控部",
+    "owner": "石景鑫",
+    "total": 19,
+    "design": 0,
+    "arrival": 0,
+    "fixed": 19,
+    "rate": 1,
+    "status": null,
+    "progress": "已完成"
+  },
+  {
+    "id": 5,
+    "name": "RGV标识衡展",
+    "dept": "机械设计部",
+    "owner": "罗铁",
+    "total": 14,
+    "design": 0,
+    "arrival": 0,
+    "fixed": 14,
+    "rate": 1,
+    "status": null,
+    "progress": "已完成"
+  },
+  {
+    "id": 6,
+    "name": "地轨导轮座固定螺栓衡展检查",
+    "dept": "机械设计部",
+    "owner": "李彩亮",
+    "total": 6,
+    "design": 6,
+    "arrival": 6,
+    "fixed": 5,
+    "rate": 0.8333,
+    "status": null,
+    "progress": "1284宁夏宝未整改（现场没人更换，协调客户无结果）-项目部（陈汉历）"
+  },
+  {
+    "id": 7,
+    "name": "堆垛机地轨导向轮硬度",
+    "dept": "质量部",
+    "owner": "淦犇",
+    "total": 18,
+    "design": 0,
+    "arrival": 18,
+    "fixed": 18,
+    "rate": 1,
+    "status": null,
+    "progress": "已完成"
+  },
+  {
+    "id": 8,
+    "name": "装载口顶升台的程序",
+    "dept": "电控部",
+    "owner": "石景鑫",
+    "total": 26,
+    "design": 0,
+    "arrival": 0,
+    "fixed": 22,
+    "rate": 0.8462,
+    "status": null,
+    "progress": "1255/1256/1271/1314项目程序更改-服务部（谭龙）"
+  },
+  {
+    "id": 9,
+    "name": "电控部2023年调试交付项目触摸屏编号检查",
+    "dept": "电控部",
+    "owner": "石景鑫",
+    "total": 51,
+    "design": 0,
+    "arrival": 0,
+    "fixed": 51,
+    "rate": 1,
+    "status": null,
+    "progress": "已完成"
+  },
+  {
+    "id": 10,
+    "name": "RGV罩板增加加强筋",
+    "dept": "机械设计部",
+    "owner": "邵广文",
+    "total": 2,
+    "design": 2,
+    "arrival": 0,
+    "fixed": 2,
+    "rate": 1,
+    "status": null,
+    "progress": "1263真爱项目横展物料输出--完成\n物料采购--完成\n现场安装--李春苗"
+  },
+  {
+    "id": 11,
+    "name": "洲其RGV电控柜内中继器品牌符合性",
+    "dept": "质量部",
+    "owner": "淦犇",
+    "total": 5,
+    "design": 0,
+    "arrival": 0,
+    "fixed": 5,
+    "rate": 1,
+    "status": null,
+    "progress": "已完成"
+  },
+  {
+    "id": 12,
+    "name": "环穿RGV增加行走速度异常报警程序",
+    "dept": "电控部",
+    "owner": "石景鑫",
+    "total": 5,
+    "design": 0,
+    "arrival": 0,
+    "fixed": 5,
+    "rate": 1,
+    "status": null,
+    "progress": "已完成"
+  },
+  {
+    "id": 13,
+    "name": "堆垛机载荷台垂直导向轮支架设计版本横展",
+    "dept": "供应商-昆山中集",
+    "owner": "周埼天",
+    "total": 4,
+    "design": 0,
+    "arrival": 3,
+    "fixed": 1,
+    "rate": 0.25,
+    "status": null,
+    "progress": "1296新华书店（已到货，正更换）-于凡皓\n1371深圳鹏新旭（已到货，待安装）-徐鹏\n1347印度EXIDE（协调昆山发货）-程琰"
+  },
+  {
+    "id": 14,
+    "name": "接口模块掉线问题",
+    "dept": "魏德米勒",
+    "owner": "周埼天",
+    "total": 7,
+    "design": 0,
+    "arrival": 6,
+    "fixed": 5,
+    "rate": 0.7143,
+    "status": null,
+    "progress": "1341物料已到现场，待更换--陈成达\n1263/1264/1335已到货，待更换--高大为（26年7月完成）"
+  },
+  {
+    "id": 15,
+    "name": "行走激光测距仪数值跳动",
+    "dept": "CT",
+    "owner": "周埼天",
+    "total": 17,
+    "design": 0,
+    "arrival": 0,
+    "fixed": 16,
+    "rate": 0.9412,
+    "status": null,
+    "progress": "剩余1421荔湾国际（未进场）"
+  },
+  {
+    "id": 16,
+    "name": "西门子变频器涉及项目",
+    "dept": "电控一部",
+    "owner": "文园",
+    "total": 24,
+    "design": 24,
+    "arrival": 0,
+    "fixed": 0,
+    "rate": 0,
+    "status": null,
+    "progress": "电控输出物料，采购还在询价阶段（崔耀平），现场未到货"
+  },
+  {
+    "id": 17,
+    "name": "堆垛机行走电机防扭座防松形式更换螺栓",
+    "dept": "机械部",
+    "owner": "王剑",
+    "total": 28,
+    "design": 24,
+    "arrival": 19,
+    "fixed": 10,
+    "rate": 0.3571,
+    "status": null,
+    "progress": "3383等9个项目已到货待更换\n1391等4个项目待发货\n1396衡阳比亚迪需3次进场后更换"
+  }
+];
+</script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<section class="board-panel active" id="board-hk" data-key="hk"><div class="board-inner"><div class="bd-topbar"><h2>横展看板</h2></div><div class="bd-body">
+<div class="dashboard">
+  <div class="header anim d1">
+    <h1>📊 项目整改跟踪 BI 看板</h1>
+    <div class="sub">数据来源：整改工作台账 · <span id="hk-projectCount">共 0 个整改项目</span> · <span id="hk-deviceCount">涉及 0 台设备</span></div>
+    <div class="divider"></div>
+  </div>
+
+  <div class="toolbar anim d2">
+    <button class="btn btn-import" onclick="hk_importData()">📥 导入数据</button>
+    <button class="btn btn-export" onclick="hk_exportData()">📤 导出数据</button>
+    <button class="btn btn-export-html" onclick="hk_exportHtmlWithData()">📦 导出含数据HTML</button>
+    <button class="btn btn-save" onclick="hk_saveData();hk_showToast('✅ 数据已保存到浏览器！')">💾 保存数据</button>
+    <button class="btn btn-undo" onclick="hk_undoImport()">↩️ 撤回导入</button>
+    <button class="btn btn-reset" onclick="hk_resetData()">🔄 重置数据</button>
+    <button class="btn btn-clear" onclick="hk_clearData()">🗑️ 清空数据</button>
+    <button class="btn btn-reload" onclick="reloadCurrentBoard()">🔄 重新加载外部数据</button>
+  </div>
+
+  <div class="kpi-row" id="hk-kpiRow"></div>
+  
+  <div class="section anim d3">
+    <div class="sec-title" onclick="hk_toggleSection('overview')">
+      📈 总览分析 <span class="badge">OVERVIEW</span>
+      <span class="toggle-btn" id="hk-overview-toggle">▼</span>
+    </div>
+    <div class="sec-content" id="hk-overview-content">
+      <div class="grid-2">
+        <div class="card">
+          <h3>项目完成状态分布</h3>
+          <div class="donut-wrap" id="hk-donutArea"></div>
+        </div>
+        <div class="card">
+          <h3>各部门项目完成率</h3>
+          <div class="hbar-chart" id="hk-deptBarArea"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="section anim d4">
+    <div class="sec-title" onclick="hk_toggleSection('pending')">
+      🔄 待完成项目进展 <span class="badge" id="hk-pendingBadge">PENDING</span>
+      <span class="toggle-btn" id="hk-pending-toggle">▼</span>
+    </div>
+    <div class="sec-content" id="hk-pending-content">
+      <div class="tbl-wrap">
+        <table class="tbl tbl-orange">
+          <thead><tr>
+            <th style="width:36px">#</th><th>项目名称</th><th style="width:100px">责任部门</th>
+            <th style="width:70px">负责人</th><th style="width:56px">总数</th>
+            <th style="width:56px">设计输出</th><th style="width:56px">厂内到货</th>
+            <th style="width:56px">现场整改</th><th style="width:160px">完成率</th>
+            <th style="width:60px">状态</th><th>进展情况</th>
+          </tr></thead>
+          <tbody id="hk-pendingBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <div class="section anim d5">
+    <div class="sec-title" onclick="hk_toggleSection('department')">
+      🏢 部门总览 <span class="badge">DEPARTMENT</span>
+      <span class="toggle-btn" id="hk-department-toggle">▼</span>
+    </div>
+    <div class="sec-content" id="hk-department-content">
+      <div class="card" style="overflow-x:auto">
+        <table class="tbl tbl-purple" id="hk-deptTable">
+          <thead><tr>
+            <th>部门</th><th>项目数</th><th>已完成</th><th>进行中</th>
+            <th>未启动</th><th>涉及台数</th><th>设计输出</th><th>厂内到货</th>
+            <th>现场整改</th><th>台完成率</th><th>项目完成率</th>
+          </tr></thead>
+          <tbody id="hk-deptBody"></tbody>
+          <tfoot id="hk-deptFoot"></tfoot>
+        </table>
+      </div>
+    </div>
+  </div>
+  
+  <div class="section anim d6">
+    <div class="sec-title" onclick="hk_toggleSection('owner')">
+      👤 负责人维度 <span class="badge">OWNER</span>
+      <span class="toggle-btn" id="hk-owner-toggle">▼</span>
+    </div>
+    <div class="sec-content" id="hk-owner-content">
+      <div class="card">
+        <div class="owner-grid" id="hk-ownerGrid"></div>
+      </div>
+    </div>
+  </div>
+  
+  <div class="section anim d7">
+    <div class="sec-title" onclick="hk_toggleSection('category')">
+      📂 项目分类明细 <span class="badge">CATEGORY</span>
+      <span class="toggle-btn" id="hk-category-toggle">▼</span>
+    </div>
+    <div class="sec-content" id="hk-category-content">
+      <div class="tbl-wrap">
+        <table class="tbl tbl-green tbl-category">
+          <thead><tr>
+            <th style="width:36px">#</th><th>项目名称</th><th style="width:100px">责任部门</th>
+            <th style="width:70px">负责人</th><th style="width:160px">完成率</th>
+            <th style="width:70px">状态</th><th>备注/分类</th>
+          </tr></thead>
+          <tbody id="hk-categoryBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="hk-detailModal">
+  <div class="modal-content">
+    <div class="modal-header">
+      <div class="modal-title" id="hk-modalTitle">项目详情</div>
+      <div class="modal-close" onclick="hk_closeModal()">×</div>
+    </div>
+    <div class="modal-body" id="hk-modalBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="hk-toast"></div>
+
+
+</div></div></section>
+<!-- ===== 计划外费用 看板（内联合并） ===== -->
+
+<script>
+window.__dsher = window.__dsher || {};
+(function(){
+(function(){ // ---- 横展看板 ----
+// ============================================================
+// Toast 提示
+// ============================================================
+function hk_showToast(msg) {
+  var t = document.getElementById('hk-toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function(){ t.classList.remove('show'); }, 3000);
+}
+
+// ============================================================
+// ★★★ 极简内置示例数据（仅3条） ★★★
+// ============================================================
+var DEFAULT_DATA = [
+  {id:1,name:"示例项目A",dept:"机械设计部",owner:"张三",total:10,design:5,arrival:3,fixed:2,rate:0.2,progress:"进行中",remark:"示例备注"},
+  {id:2,name:"示例项目B",dept:"电控部",owner:"李四",total:8,design:8,arrival:8,fixed:8,rate:1,progress:"已完成",remark:""},
+  {id:3,name:"示例项目C",dept:"质量部",owner:"王五",total:5,design:0,arrival:0,fixed:0,rate:0,progress:"未启动",remark:""}
+];
+
+// ============================================================
+// 实际使用的数据
+// ============================================================
+var P = [];
+var previousP = null;
+
+// 优先加载外部数据
+function loadData() {
+  var loaded = false;
+  
+  // 1. 尝试加载外部数据
+  if (typeof RAW_HENGZHAN !== 'undefined' && Array.isArray(RAW_HENGZHAN) && RAW_HENGZHAN.length > 0) {
+    P = RAW_HENGZHAN.map(function(item) {
+      var rate = item.rate !== undefined ? item.rate : (item.total > 0 ? item.fixed / item.total : 0);
+      var status = item.status;
+      if (!status) {
+        if (rate >= 1) status = '已完成';
+        else if (rate === 0) status = '未启动';
+        else status = '进行中';
+      }
+      return {
+        id: item.id || 0,
+        name: item.name || '',
+        dept: item.dept || '',
+        owner: item.owner || '/',
+        total: item.total || 0,
+        design: item.design || 0,
+        arrival: item.arrival || 0,
+        fixed: item.fixed || 0,
+        rate: rate,
+        status: status,
+        progress: item.progress || '',
+        remark: item.remark || ''
+      };
+    });
+    loaded = true;
+  }
+  
+  // 2. 尝试从 localStorage 加载
+  if (!loaded) {
+    try {
+      var saved = localStorage.getItem('hengzhan_data');
+      if (saved) {
+        var data = JSON.parse(saved);
+        if (Array.isArray(data) && data.length > 0) {
+          P = data;
+          loaded = true;
+        }
+      }
+    } catch (e) {
+      console.error('数据加载失败:', e);
+    }
+  }
+  
+  // 3. 使用内置示例
+  if (!loaded || P.length === 0) {
+    P = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }
+  
+  return loaded;
+}
+
+// ============================================================
+// 保存数据到localStorage
+// ============================================================
+function hk_saveData() {
+  try {
+    localStorage.setItem('hengzhan_data', JSON.stringify(P));
+  } catch (e) {
+    console.error('保存失败:', e);
+  }
+}
+
+// ============================================================
+// 工具函数
+// ============================================================
+var rc = function(r) { return r >= 0.9 ? '#16a34a' : r >= 0.5 ? '#ea580c' : '#dc2626'; };
+var tag = function(s) {
+  if (s === '已完成') return '<span class="tag done">✅ 已完成</span>';
+  if (s === '未启动') return '<span class="tag notstarted">⛔ 未启动</span>';
+  return '<span class="tag ongoing">🔄 进行中</span>';
+};
+var pct = function(v) { return (v * 100).toFixed(1) + '%'; };
+var rateBar = function(r) {
+  return '<div class="rate-wrap"><div class="rate-bar"><div class="rate-fill" style="width:' + (r * 100) + '%;background:' + rc(r) + '"></div></div><span class="rate-num" style="color:' + rc(r) + '">' + pct(r) + '</span></div>';
+};
+var avatarColors = ['#2563eb','#7c3aed','#16a34a','#ea580c','#dc2626','#0891b2','#c026d3','#4f46e5','#059669','#d97706'];
+
+function toNum(v) {
+  if (typeof v === 'number') return v;
+  if (typeof v === 'string') { var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+  return 0;
+}
+
+// ============================================================
+// 折叠/展开
+// ============================================================
+function hk_toggleSection(id) {
+  var content = document.getElementById('hk-' + id + '-content');
+  var btn = document.getElementById('hk-' + id + '-toggle');
+  if (content) content.classList.toggle('collapsed');
+  if (btn) btn.classList.toggle('collapsed');
+}
+
+// ============================================================
+// 弹窗
+// ============================================================
+function hk_showDetail(id) {
+  var p = P.find(function(x) { return x.id === id; });
+  if (!p) return;
+  document.getElementById('hk-modalTitle').textContent = p.name;
+  var html = 
+    '<div class="modal-field"><div class="modal-label">序号</div><div class="modal-value">' + p.id + '</div></div>' +
+    '<div class="modal-field"><div class="modal-label">责任部门</div><div class="modal-value">' + p.dept + '</div></div>' +
+    '<div class="modal-field"><div class="modal-label">负责人</div><div class="modal-value">' + p.owner + '</div></div>' +
+    '<div class="modal-field"><div class="modal-label">衡展项目数量</div><div class="modal-value">' + p.total + ' 台</div></div>' +
+    '<div class="modal-field"><div class="modal-label">设计输出</div><div class="modal-value">' + p.design + ' 台</div></div>' +
+    '<div class="modal-field"><div class="modal-label">厂内到货情况</div><div class="modal-value">' + p.arrival + ' 台</div></div>' +
+    '<div class="modal-field"><div class="modal-label">现场整改</div><div class="modal-value">' + p.fixed + ' 台</div></div>' +
+    '<div class="modal-field"><div class="modal-label">完成率</div><div class="modal-value">' + pct(p.rate) + '</div></div>' +
+    '<div class="modal-field"><div class="modal-label">状态</div><div class="modal-value">' + p.status + '</div></div>' +
+    '<div class="modal-field"><div class="modal-label">进展情况</div><div class="modal-value">' + (p.progress || '-') + '</div></div>' +
+    '<div class="modal-field"><div class="modal-label">备注</div><div class="modal-value">' + (p.remark || '-') + '</div></div>';
+  document.getElementById('hk-modalBody').innerHTML = html;
+  document.getElementById('hk-detailModal').classList.add('show');
+}
+
+function hk_closeModal() {
+  document.getElementById('hk-detailModal').classList.remove('show');
+}
+
+// ============================================================
+// 导入数据
+// ============================================================
+function hk_importData() {
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.xlsx,.xls';
+  input.onchange = function(e) {
+    var file = e.target.files[0];
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function(evt) {
+      try {
+        var data = new Uint8Array(evt.target.result);
+        var wb = XLSX.read(data, { type: 'array' });
+        var ws = wb.Sheets[wb.SheetNames[0]];
+        var rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+        
+        var newData = [];
+        for (var i = 1; i < rows.length; i++) {
+          var row = rows[i];
+          if (!row[0]) continue;
+          var total = toNum(row[4]);
+          var design = toNum(row[5]);
+          var arrival = toNum(row[6]);
+          var fixed = toNum(row[7]);
+          var rate = total > 0 ? fixed / total : 0;
+          var status = '进行中';
+          if (rate >= 1) status = '已完成';
+          else if (rate === 0) status = '未启动';
+          
+          newData.push({
+            id: toNum(row[0]),
+            name: String(row[1] || ''),
+            dept: String(row[2] || ''),
+            owner: String(row[3] || '/'),
+            total: total,
+            design: design,
+            arrival: arrival,
+            fixed: fixed,
+            rate: rate,
+            status: status,
+            progress: String(row[9] || ''),
+            remark: String(row[10] || '')
+          });
+        }
+        
+        if (newData.length > 0) {
+          previousP = JSON.parse(JSON.stringify(P));
+          P = newData;
+          hk_saveData();
+          renderAll();
+          hk_showToast('✅ 导入成功！共 ' + newData.length + ' 条数据。');
+        } else {
+          alert('未找到有效数据，请检查文件格式！');
+        }
+      } catch(err) {
+        alert('导入失败：' + err.message);
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  };
+  input.click();
+}
+
+// ============================================================
+// 导出数据
+// ============================================================
+function hk_exportData() {
+  var wsData = [
+    ['序号','衡展内容','责任部门','责任人','衡展项目数量','设计输出','厂内到货情况','现场整改','完成率','进展情况','备注']
+  ];
+  P.forEach(function(p) {
+    wsData.push([p.id, p.name, p.dept, p.owner, p.total, p.design, p.arrival, p.fixed, p.rate, p.progress, p.remark]);
+  });
+  var ws = XLSX.utils.aoa_to_sheet(wsData);
+  var wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, '工作表1');
+  XLSX.writeFile(wb, '项目整改数据_' + new Date().toISOString().slice(0,10) + '.xlsx');
+  hk_showToast('✅ Excel 导出成功！');
+}
+
+// ============================================================
+// ★★★ 导出含数据HTML ★★★
+// ============================================================
+function hk_exportHtmlWithData() {
+  var dataJson = JSON.stringify(P, null, 2);
+  var htmlContent = document.documentElement.outerHTML;
+  
+  // 替换内置示例数据
+  htmlContent = htmlContent.replace(
+    /var DEFAULT_DATA = \[[\s\S]*?\];/,
+    'var DEFAULT_DATA = ' + dataJson + ';'
+  );
+  
+  // 移除外部数据引用
+  htmlContent = htmlContent.replace(
+    /<script src="横展数据\.data\.js"><\/script>\s*/,
+    ''
+  );
+  
+  // 修改数据初始化逻辑，直接使用 DEFAULT_DATA
+  var newInitCode = `
+  // ★ 导出版本：完全自包含，不依赖外部文件
+  var loaded = false;
+  try {
+    var saved = localStorage.getItem('hengzhan_data');
+    if (saved) {
+      var data = JSON.parse(saved);
+      if (Array.isArray(data) && data.length > 0) {
+        P = data;
+        loaded = true;
+      }
+    }
+  } catch (e) {}
+  if (!loaded || P.length === 0) {
+    P = JSON.parse(JSON.stringify(DEFAULT_DATA));
+  }`;
+  
+  var initRegex = /var P = \[\];\s*var previousP = null;\s*\/\/ 优先加载外部数据[\s\S]*?return loaded;\s*\}/;
+  htmlContent = htmlContent.replace(initRegex, 'var P = [];\nvar previousP = null;\n' + newInitCode);
+  
+  var blob = new Blob(['<!DOCTYPE html>\n' + htmlContent], { type: 'text/html;charset=utf-8' });
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = '横展看板_含数据_' + new Date().toISOString().slice(0,10) + '.html';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  
+  hk_showToast('✅ HTML 已导出，包含 ' + P.length + ' 条数据！');
+}
+
+// ============================================================
+// 撤回导入
+// ============================================================
+function hk_undoImport() {
+  if (!previousP) {
+    hk_showToast('⚠️ 没有可撤销的导入操作');
+    return;
+  }
+  if (confirm('确定要撤销最近的导入操作吗？\n这将恢复到导入前的数据状态。')) {
+    P = JSON.parse(JSON.stringify(previousP));
+    previousP = null;
+    hk_saveData();
+    renderAll();
+    hk_showToast('✅ 已撤回导入！');
+  }
+}
+
+// ============================================================
+// 重置数据
+// ============================================================
+function hk_resetData() {
+  if (confirm('确定要重置为默认数据吗？所有修改将被清除！')) {
+    P = JSON.parse(JSON.stringify(DEFAULT_DATA));
+    localStorage.removeItem('hengzhan_data');
+    renderAll();
+    hk_showToast('✅ 已重置为默认数据！');
+  }
+}
+
+// ============================================================
+// 清空数据
+// ============================================================
+function hk_clearData() {
+  if (confirm('确定要清空所有数据吗？此操作不可恢复！')) {
+    P = [];
+    localStorage.removeItem('hengzhan_data');
+    renderAll();
+    hk_showToast('✅ 数据已清空！');
+  }
+}
+
+// ============================================================
+// 渲染核心函数
+// ============================================================
+function renderAll() {
+  var total = P.length;
+  var totalUnits = P.reduce(function(s, p) { return s + p.total; }, 0);
+  document.getElementById('hk-projectCount').textContent = '共 ' + total + ' 个整改项目';
+  document.getElementById('hk-deviceCount').textContent = '涉及 ' + totalUnits + ' 台设备';
+  
+  renderKPI();
+  renderDonut();
+  renderDeptBar();
+  renderPending();
+  renderDeptTable();
+  renderOwnerGrid();
+  renderCategory();
+}
+
+function renderKPI() {
+  var total = P.length;
+  var done = P.filter(function(p) { return p.status === '已完成'; }).length;
+  var ongoing = P.filter(function(p) { return p.status === '进行中'; }).length;
+  var notStarted = P.filter(function(p) { return p.status === '未启动'; }).length;
+  var totalUnits = P.reduce(function(s, p) { return s + p.total; }, 0);
+  var fixedUnits = P.reduce(function(s, p) { return s + p.fixed; }, 0);
+  var unitRate = totalUnits > 0 ? fixedUnits / totalUnits : 0;
+  
+  var kpis = [
+    { icon: '📋', val: total, label: '总项目数', sub: '涉及 ' + totalUnits + ' 台设备' },
+    { icon: '✅', val: done, label: '已完成项目', sub: '项目完成率 ' + (total > 0 ? pct(done / total) : '0%') },
+    { icon: '🔄', val: ongoing, label: '进行中项目', sub: '平均完成率 ' + (ongoing > 0 ? pct(P.filter(function(p) { return p.status === '进行中'; }).reduce(function(s, p) { return s + p.rate; }, 0) / ongoing) : '0%') },
+    { icon: '⚠️', val: notStarted, label: '未启动项目', sub: P.filter(function(p) { return p.status === '未启动'; }).map(function(p) { return p.name; }).join('、') || '-' },
+    { icon: '🔧', val: pct(unitRate), label: '台完成率', sub: fixedUnits + ' / ' + totalUnits + ' 台' }
+  ];
+  
+  var el = document.getElementById('hk-kpiRow');
+  el.innerHTML = '';
+  kpis.forEach(function(k, i) {
+    el.innerHTML += '<div class="kpi-card anim d' + (i + 1) + '"><div class="icon">' + k.icon + '</div><div class="val">' + k.val + '</div><div class="label">' + k.label + '</div><div class="sub">' + k.sub + '</div></div>';
+  });
+}
+
+function renderDonut() {
+  var done = P.filter(function(p) { return p.status === '已完成'; }).length;
+  var ongoing = P.filter(function(p) { return p.status === '进行中'; }).length;
+  var notStarted = P.filter(function(p) { return p.status === '未启动'; }).length;
+  var total = P.length;
+  
+  if (total === 0) {
+    document.getElementById('hk-donutArea').innerHTML = '<div style="text-align:center;color:var(--text-dim);padding:40px">暂无数据</div>';
+    return;
+  }
+  
+  var pDone = (done / total * 100).toFixed(1);
+  var pOngoing = (ongoing / total * 100).toFixed(1);
+  var pNot = (notStarted / total * 100).toFixed(1);
+  var el = document.getElementById('hk-donutArea');
+  
+  el.innerHTML = 
+    '<svg class="donut-svg" viewBox="0 0 42 42">' +
+    '<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#f1f5f9" stroke-width="5"/>' +
+    '<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#16a34a" stroke-width="5" stroke-dasharray="' + pDone + ' ' + (100 - pDone) + '" stroke-dashoffset="25" stroke-linecap="round"/>' +
+    '<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#ea580c" stroke-width="5" stroke-dasharray="' + pOngoing + ' ' + (100 - pOngoing) + '" stroke-dashoffset="' + (25 - parseFloat(pDone)) + '" stroke-linecap="round"/>' +
+    (notStarted > 0 ? '<circle cx="21" cy="21" r="15.915" fill="transparent" stroke="#dc2626" stroke-width="5" stroke-dasharray="' + pNot + ' ' + (100 - pNot) + '" stroke-dashoffset="' + (25 - parseFloat(pDone) - parseFloat(pOngoing)) + '" stroke-linecap="round"/>' : '') +
+    '<text x="21" y="20.5" text-anchor="middle" dominant-baseline="central" fill="#0f172a" font-size="6" font-weight="800">' + pct(done / total) + '</text>' +
+    '<text x="21" y="25.5" text-anchor="middle" fill="#94a3b8" font-size="2.5">项目完成率</text>' +
+    '</svg>' +
+    '<div class="legend">' +
+    '<div class="legend-item"><span class="legend-dot" style="background:#16a34a"></span><span>已完成</span><span class="legend-val" style="color:#16a34a">' + done + ' 项</span></div>' +
+    '<div class="legend-item"><span class="legend-dot" style="background:#ea580c"></span><span>进行中</span><span class="legend-val" style="color:#ea580c">' + ongoing + ' 项</span></div>' +
+    '<div class="legend-item"><span class="legend-dot" style="background:#dc2626"></span><span>未启动</span><span class="legend-val" style="color:#dc2626">' + notStarted + ' 项</span></div>' +
+    '</div>';
+}
+
+function renderDeptBar() {
+  var depts = {};
+  P.forEach(function(p) {
+    if (!depts[p.dept]) depts[p.dept] = { done: 0, total: 0 };
+    depts[p.dept].total++;
+    if (p.status === '已完成') depts[p.dept].done++;
+  });
+  
+  var el = document.getElementById('hk-deptBarArea');
+  el.innerHTML = '';
+  var entries = Object.entries(depts);
+  entries.sort(function(a, b) { return (b[1].done / b[1].total) - (a[1].done / a[1].total); });
+  entries.forEach(function(entry) {
+    var dept = entry[0];
+    var d = entry[1];
+    var rate = d.done / d.total;
+    var color = rc(rate);
+    el.innerHTML += '<div class="hbar-item"><div class="hbar-label" title="' + dept + '">' + dept + '</div><div class="hbar-track"><div class="hbar-fill" style="width:' + (rate * 100) + '%;background:' + color + '"></div></div><div class="hbar-val" style="color:' + color + '">' + d.done + '/' + d.total + '</div></div>';
+  });
+}
+
+function renderPending() {
+  var pending = P.filter(function(p) { return p.status !== '已完成'; });
+  pending.sort(function(a, b) { return a.rate - b.rate; });
+  document.getElementById('hk-pendingBadge').textContent = pending.length + ' 项待完成';
+  
+  var el = document.getElementById('hk-pendingBody');
+  el.innerHTML = '';
+  pending.forEach(function(p) {
+    el.innerHTML += 
+      '<tr><td>' + p.id + '</td><td><strong style="color:var(--text-bright)">' + p.name + '</strong></td><td>' + p.dept + '</td><td>' + p.owner + '</td><td style="text-align:center">' + p.total + '</td><td style="text-align:center">' + (p.design || '-') + '</td><td style="text-align:center">' + (p.arrival || '-') + '</td><td style="text-align:center;font-weight:600;color:' + rc(p.rate) + '">' + p.fixed + '</td><td>' + rateBar(p.rate) + '</td><td>' + tag(p.status) + '</td><td><div class="detail-text">' + (p.progress || '-') + '</div></td></tr>';
+  });
+}
+
+function renderDeptTable() {
+  var depts = {};
+  P.forEach(function(p) {
+    if (!depts[p.dept]) depts[p.dept] = { count: 0, done: 0, ongoing: 0, notStarted: 0, units: 0, design: 0, arrival: 0, fixed: 0 };
+    var d = depts[p.dept];
+    d.count++;
+    d.units += p.total;
+    d.design += p.design;
+    d.arrival += p.arrival;
+    d.fixed += p.fixed;
+    if (p.status === '已完成') d.done++;
+    else if (p.status === '未启动') d.notStarted++;
+    else d.ongoing++;
+  });
+  
+  var tbody = document.getElementById('hk-deptBody');
+  var tfoot = document.getElementById('hk-deptFoot');
+  tbody.innerHTML = '';
+  var tc = 0, td = 0, to = 0, tn = 0, tu = 0, tds = 0, tar = 0, tfx = 0;
+  
+  var entries = Object.entries(depts);
+  entries.sort(function(a, b) { return (b[1].done / b[1].count) - (a[1].done / a[1].count); });
+  entries.forEach(function(entry) {
+    var dept = entry[0];
+    var d = entry[1];
+    var ur = d.units > 0 ? d.fixed / d.units : 0;
+    var pr = d.done / d.count;
+    tbody.innerHTML += 
+      '<tr><td>' + dept + '</td><td>' + d.count + '</td><td style="color:#16a34a">' + d.done + '</td><td style="color:#ea580c">' + d.ongoing + '</td><td style="color:#dc2626">' + d.notStarted + '</td><td>' + d.units + '</td><td>' + d.design + '</td><td>' + d.arrival + '</td><td>' + d.fixed + '</td><td><span style="color:' + rc(ur) + ';font-weight:700">' + pct(ur) + '</span></td><td><span style="color:' + rc(pr) + ';font-weight:700">' + pct(pr) + '</span></td></tr>';
+    tc += d.count;
+    td += d.done;
+    to += d.ongoing;
+    tn += d.notStarted;
+    tu += d.units;
+    tds += d.design;
+    tar += d.arrival;
+    tfx += d.fixed;
+  });
+  
+  var tur = tu > 0 ? tfx / tu : 0;
+  var tpr = tc > 0 ? td / tc : 0;
+  tfoot.innerHTML = '<tr><td>合计</td><td>' + tc + '</td><td style="color:#16a34a">' + td + '</td><td style="color:#ea580c">' + to + '</td><td style="color:#dc2626">' + tn + '</td><td>' + tu + '</td><td>' + tds + '</td><td>' + tar + '</td><td>' + tfx + '</td><td style="color:var(--accent)">' + pct(tur) + '</td><td style="color:var(--accent)">' + pct(tpr) + '</td></tr>';
+}
+
+function renderOwnerGrid() {
+  var owners = {};
+  P.forEach(function(p) {
+    var o = p.owner;
+    if (!owners[o]) owners[o] = { count: 0, done: 0, units: 0, fixed: 0 };
+    owners[o].count++;
+    owners[o].units += p.total;
+    owners[o].fixed += p.fixed;
+    if (p.status === '已完成') owners[o].done++;
+  });
+  
+  var el = document.getElementById('hk-ownerGrid');
+  el.innerHTML = '';
+  var entries = Object.entries(owners);
+  entries.sort(function(a, b) {
+    var ra = a[1].units > 0 ? a[1].fixed / a[1].units : 0;
+    var rb = b[1].units > 0 ? b[1].fixed / b[1].units : 0;
+    return rb - ra;
+  });
+  entries.forEach(function(entry, i) {
+    var name = entry[0];
+    var d = entry[1];
+    var rate = d.units > 0 ? d.fixed / d.units : 0;
+    var color = avatarColors[i % avatarColors.length];
+    var initial = name === '/' ? '—' : name.charAt(0);
+    el.innerHTML += 
+      '<div class="owner-card"><div class="owner-avatar" style="background:' + color + '">' + initial + '</div><div class="owner-info"><div class="owner-name">' + (name === '/' ? '未指定' : name) + '</div><div class="owner-stat">' + d.count + ' 个项目 · ' + d.fixed + '/' + d.units + ' 台已完成</div></div><div class="owner-rate" style="color:' + rc(rate) + '">' + pct(rate) + '</div></div>';
+  });
+}
+
+function renderCategory() {
+  var el = document.getElementById('hk-categoryBody');
+  el.innerHTML = '';
+  P.forEach(function(p) {
+    var remarkHTML = p.remark ? '<span style="display:inline-block;padding:2px 10px;border-radius:6px;font-size:11px;background:#f5f3ff;color:#7c3aed">' + p.remark + '</span>' : '<span style="color:var(--text-dim)">-</span>';
+    el.innerHTML += 
+      '<tr onclick="hk_showDetail(' + p.id + ')"><td>' + p.id + '</td><td><strong style="color:var(--text-bright)">' + p.name + '</strong></td><td>' + p.dept + '</td><td>' + p.owner + '</td><td>' + rateBar(p.rate) + '</td><td>' + tag(p.status) + '</td><td>' + remarkHTML + '</td></tr>';
+  });
+}
+
+// ============================================================
+// ★★★ 暴露全局函数供 HTML 调用 ★★★
+// ============================================================
+window.hk_toggleSection = hk_toggleSection;
+window.hk_showDetail = hk_showDetail;
+window.hk_closeModal = hk_closeModal;
+window.hk_importData = hk_importData;
+window.hk_exportData = hk_exportData;
+window.hk_exportHtmlWithData = hk_exportHtmlWithData;
+window.hk_undoImport = hk_undoImport;
+window.hk_resetData = hk_resetData;
+window.hk_clearData = hk_clearData;
+window.hk_saveData = hk_saveData;
+window.hk_showToast = hk_showToast;
+
+  // 暴露全局函数供 HTML onclick 调用（缺失函数自动跳过）
+  window["hk_toggleSection"]=hk_toggleSection;
+  window["hk_showDetail"]=hk_showDetail;
+  window["hk_closeModal"]=hk_closeModal;
+  window["hk_importData"]=hk_importData;
+  window["hk_exportData"]=hk_exportData;
+  window["hk_exportHtmlWithData"]=hk_exportHtmlWithData;
+  window["hk_undoImport"]=hk_undoImport;
+  window["hk_resetData"]=hk_resetData;
+  window["hk_clearData"]=hk_clearData;
+  window["hk_saveData"]=hk_saveData;
+  window["hk_showToast"]=hk_showToast;
+
+  window.__dsher["hk"]={done:false,init:function(){loadData();
+renderAll();
+hk_saveData();
+
+// 点击模态框外部关闭
+document.getElementById('hk-detailModal').addEventListener('click', function(e) {
+  if (e.target === this) hk_closeModal();
+});
+ window.__dsher["hk"].done=true;}};
+})();
+})();
+</script>
+
+<script>
+window.__chartLibFallback = window.__chartLibFallback || function() {};
+(function(){
+  function b64ToBytes(b64){var bin=atob(b64);var u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++){u[i]=bin.charCodeAt(i);}return u;}
+  async function unpack(b64){
+    var bytes=b64ToBytes(b64);
+    var ds=new DecompressionStream('gzip');
+    var stream=new Blob([bytes]).stream().pipeThrough(ds);
+    var ab=await new Response(stream).arrayBuffer();
+    return new TextDecoder().decode(ab);
+  }
+  window.__DSH_BOOT = async function(){
+    try{
+      if(window.__DSH_LIB_B64){var libsrc=await unpack(window.__DSH_LIB_B64);(0,eval)(libsrc);}
+      if(window.__DSH_DATA_B64){var datasrc=await unpack(window.__DSH_DATA_B64);(0,eval)(datasrc);}
+    }catch(e){console.error('解压失败',e);var bar=document.createElement('div');bar.style.cssText='position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:8px;z-index:99999;font-size:13px;text-align:center;';bar.textContent='⚠️ 图表库解压失败: '+e.message;document.body.appendChild(bar);}
+    try{ window.__dsher["hk"].init(); }catch(e){ console.error('看板初始化失败',e); var bar=document.createElement('div'); bar.style.cssText='position:fixed;top:0;left:0;right:0;background:#dc2626;color:#fff;padding:8px;z-index:99999;font-size:13px;text-align:center;'; bar.textContent='⚠️ 初始化失败: '+e.message; document.body.appendChild(bar); }
+  };
+  if(document.readyState==='loading'){document.addEventListener('DOMContentLoaded',function(){window.__DSH_BOOT();});}
+  else{window.__DSH_BOOT();}
+})();
+</script>
+</body>
+</html>
